@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Dict, List
 
@@ -17,23 +18,27 @@ def normalize_finished(series: pd.Series) -> pd.Series:
     return series.astype(str).str.strip().str.lower().isin(truthy)
 
 
-def find_group_column(columns, label, required_text=None):
+def find_group_column(columns, bucket_suffix, required_text=None):
     matches = []
+    suffix_lower = bucket_suffix.lower()
+    required_lower = required_text.lower() if required_text else None
+
     for c in columns:
         c_low = str(c).lower()
-        if "groups" in c_low and label.lower() in c_low:
-            if required_text is None or required_text.lower() in c_low:
-                matches.append(c)
+        if required_lower is not None and required_lower not in c_low:
+            continue
+        if c_low.endswith(suffix_lower):
+            matches.append(c)
 
     if len(matches) == 0:
         raise ValueError(
-            f"No column found containing 'Groups' and '{label}'"
-            + (f" and '{required_text}'" if required_text else "")
+            f"No column found ending with '{bucket_suffix}'"
+            + (f" and containing '{required_text}'" if required_text else "")
         )
     if len(matches) > 1:
         raise ValueError(
-            f"Expected exactly one column containing 'Groups' and '{label}'"
-            + (f" and '{required_text}'" if required_text else "")
+            f"Expected exactly one column ending with '{bucket_suffix}'"
+            + (f" and containing '{required_text}'" if required_text else "")
             + f", found {len(matches)}: {matches}"
         )
     return matches[0]
@@ -61,11 +66,11 @@ def main() -> None:
         raise ValueError("No responses available after filtering. Cannot compute ranking.")
 
     columns = [str(c) for c in df.columns]
-    TARGET = "CORE"
+    TARGET = os.getenv("TARGET", "CORE")
 
-    most_col = find_group_column(columns, "Most Beneficial", TARGET)
-    neutral_col = find_group_column(columns, "Neutral", TARGET)
-    least_col = find_group_column(columns, "Least Beneficial", TARGET)
+    most_col = find_group_column(columns, "Groups - Most Beneficial", TARGET)
+    neutral_col = find_group_column(columns, "Groups - Neutral", TARGET)
+    least_col = find_group_column(columns, "Groups - Least Beneficial", TARGET)
 
     course_stats: Dict[str, Dict[str, int]] = {}
 
