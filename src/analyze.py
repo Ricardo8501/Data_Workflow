@@ -17,11 +17,24 @@ def normalize_finished(series: pd.Series) -> pd.Series:
     return series.astype(str).str.strip().str.lower().isin(truthy)
 
 
-def find_group_column(columns: List[str], keyword: str) -> str:
-    matches = [c for c in columns if "Groups" in c and keyword in c]
-    if len(matches) != 1:
+def find_group_column(columns, label, required_text=None):
+    matches = []
+    for c in columns:
+        c_low = str(c).lower()
+        if "groups" in c_low and label.lower() in c_low:
+            if required_text is None or required_text.lower() in c_low:
+                matches.append(c)
+
+    if len(matches) == 0:
         raise ValueError(
-            f"Expected exactly one column containing 'Groups' and '{keyword}', found {len(matches)}: {matches}"
+            f"No column found containing 'Groups' and '{label}'"
+            + (f" and '{required_text}'" if required_text else "")
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"Expected exactly one column containing 'Groups' and '{label}'"
+            + (f" and '{required_text}'" if required_text else "")
+            + f", found {len(matches)}: {matches}"
         )
     return matches[0]
 
@@ -48,9 +61,11 @@ def main() -> None:
         raise ValueError("No responses available after filtering. Cannot compute ranking.")
 
     columns = [str(c) for c in df.columns]
-    most_col = find_group_column(columns, "Most Beneficial")
-    neutral_col = find_group_column(columns, "Neutral")
-    least_col = find_group_column(columns, "Least Beneficial")
+    TARGET = "CORE"
+
+    most_col = find_group_column(columns, "Most Beneficial", TARGET)
+    neutral_col = find_group_column(columns, "Neutral", TARGET)
+    least_col = find_group_column(columns, "Least Beneficial", TARGET)
 
     course_stats: Dict[str, Dict[str, int]] = {}
 
